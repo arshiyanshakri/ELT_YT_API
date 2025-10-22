@@ -2,6 +2,7 @@ import requests
 import json
 import os 
 from dotenv import load_dotenv
+from datetime import date
 
 load_dotenv(dotenv_path="./.env")    ## To set path of .env file
 
@@ -106,8 +107,16 @@ def extracted_video_data(video_ids):
     except requests.exceptions.RequestException as e:
         raise e
 
+def save_to_json(extracted_data):
+    file_path = f"./data/YT_data_{date.today()}.json"
+
+    with open(file_path,"w", encoding="utf-8") as json_outfile:    
+        # Writes inside the file path and include specl characters
+        json.dump(extracted_data, json_outfile, indent=4, ensure_ascii=False )
+
 
 if __name__ == "__main__":             ## This helps to prevent code execution from any other module
     playListId = get_PlaylistID()
     video_ids = get_video_ids(playListId)
-    extracted_video_data(video_ids)
+    yt_data = extracted_video_data(video_ids)
+    save_to_json(yt_data)
