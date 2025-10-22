@@ -34,15 +34,14 @@ def get_PlaylistID():
 
 def get_video_ids(playListId):
 
-    video_ids = []
-    pageToken = None
+    video_ids = []       ##List for storing all videos of the youtuber
+    pageToken = None     ##variable to contain token of next page of 50 videos
     base_url = f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults={maxResults}&playlistId={playListId}&key={API_KEY}"
     
     try:
-
         while True:
             url = base_url
-            if pageToken:
+            if pageToken:       ## if page token is none
                 url = url + f"&pageToken={pageToken}"
 
             response = requests.get(url)
@@ -50,8 +49,8 @@ def get_video_ids(playListId):
             response.raise_for_status()     ## Try 200 as response
             data = response.json()          ## Convert response to JSON
 
-            for item in data.get('items',[]):
-                video_id= item['contentDetails']['videoId']
+            for item in data.get('items',[]):      ## To get object of video_ids from JSON
+                video_id= item['contentDetails']['videoId']   
                 video_ids.append(video_id)
 
             pageToken = data.get('nextPageToken')
@@ -65,6 +64,50 @@ def get_video_ids(playListId):
         raise e
 
 
+def extracted_video_data(video_ids):
+    extracted_data = []
+
+    # Batches are required because API limit is set to 50 per call.
+
+    def batch_list(video_id_list, batch_size):      ## To convert entire set of videos into batches
+        for video_id in range(0, len(video_id_list),batch_size):
+            yield video_id_list[video_id : video_id + batch_size]
+
+    try:
+        for batch in batch_list(video_ids, maxResults):   ## 1 batch = list of 50 videos
+            video_ids_str = ",".join(batch)
+
+            url = f"https://youtube.googleapis.com/youtube/v3/videos?part=contentDetails&part=snippet&part=statistics&id={video_ids_str}&key={API_KEY}"
+            
+            response = requests.get(url)
+
+            response.raise_for_status()     ## Try 200 as response
+            data = response.json()          ## Convert response to JSON
+
+            for item in  data.get('items',[]):
+                video_id = item['id'] 
+                snippet = item['snippet']
+                contentDetails  = item['contentDetails']
+                stats = item['statistics']
+
+                video_data = {
+                    "video_id": video_id,
+                    "title": snippet['title'],
+                    "publishedAt": snippet['publishedAt'],
+                    "duration": contentDetails['duration'],
+                    "viewCount": stats.get('viewCount',None),
+                    "likeCount": stats.get('likeCount',None),
+                    "commentCount": stats.get('commentCount',None)
+                }
+                extracted_data.append(video_data)
+
+        return extracted_data
+
+    except requests.exceptions.RequestException as e:
+        raise e
+
+
 if __name__ == "__main__":             ## This helps to prevent code execution from any other module
     playListId = get_PlaylistID()
-    get_video_ids(playListId)
+    video_ids = get_video_ids(playListId)
+    extracted_video_data(video_ids)
